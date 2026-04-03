@@ -1,0 +1,5 @@
+{
+  "name": "Navagram: Misinformation Simulator",
+  "description": "A modular simulation of misinformation spread in the village of Navagram.",
+  "requestFramePermissions": []
+}
