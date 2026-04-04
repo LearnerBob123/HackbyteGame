@@ -83,7 +83,7 @@ export default async function handler(req: any, res: any) {
         const ai = new GoogleGenAI({ apiKey });
 
         const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash', // safer model name
+            model: 'gemini-2.0-flash', // safer model name
             contents: prompt,
             config: {
                 temperature: 1,
