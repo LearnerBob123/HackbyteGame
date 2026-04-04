@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Position, RUMORS, Rumor, LOCATIONS } from '../types';
+import { Position, Rumor } from '../types';
+import { RUMORS } from '../data/rumors';
+import { LOCATIONS } from '../data/locations';
 import { Agent } from './Agent';
 
 export class SimulationEngine {

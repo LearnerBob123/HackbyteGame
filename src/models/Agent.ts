@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Position, MAP_SIZE, RUMORS, TILE_MAP } from '../types';
+import { Position } from '../types';
+import { MAP_SIZE, TILE_MAP } from '../data/map';
+import { RUMORS } from '../data/rumors';
 
 export class Agent {
   id: number;
