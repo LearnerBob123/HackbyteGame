@@ -48,7 +48,14 @@ export class SimulationEngine {
       return agent;
     });
 
-    this.agents = [...this.agents, ...bgAgents];
+    const byteBaba = new Agent(999, 'Byte Baba', '#14b8a6');
+    byteBaba.role = 'oracle';
+    byteBaba.title = 'Edge Oracle';
+    byteBaba.intro = 'I sit at the edge of Navagram and spin fresh riddles, jokes, memes, and game hints on demand.';
+    byteBaba.isStationary = true;
+    byteBaba.pos = { x: 36, y: 12 };
+
+    this.agents = [...this.agents, ...bgAgents, byteBaba];
 
     // Assign specific rumors to specific agents for Day 1
     this.agents[0].knownRumors.push("drone-banyan");

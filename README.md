@@ -44,5 +44,16 @@ The codebase is structured as a modern React application using TypeScript and Vi
 ## Running Locally
 
 1. Install dependencies: `npm install`
-2. Start the development server: `npm run dev`
-3. Open the provided local URL in your browser.
+2. Copy `.env.example` to `.env` and set `GEMINI_API_KEY`.
+3. Optional: set `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` to give Byte Baba an old-man voice.
+4. Start the Gemini proxy server in one terminal: `npm run dev:server`
+5. Start the Vite client in another terminal: `npm run dev`
+6. Open the provided local URL in your browser.
+
+## Gemini Chatbot NPC
+
+- A special villager named Byte Baba now sits near the eastern edge of the map.
+- Talk to Byte Baba to ask about the game, request hints, or generate short riddles, jokes, and text-only meme ideas.
+- The browser now calls a local Express endpoint at `/api/chatbot`, which forwards requests to Gemini so your API key stays on the server side.
+- If ElevenLabs is configured, Byte Baba can also speak each reply aloud and you can toggle voice playback inside the chat panel.
+- If Byte Baba says the signal is weak, check that `.env` exists and the proxy server is running on port `3001`.

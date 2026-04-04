@@ -7,6 +7,8 @@ import { Position } from '../types';
 import { MAP_SIZE, TILE_MAP } from '../data/map';
 import { RUMORS } from '../data/rumors';
 
+export type AgentRole = 'villager' | 'oracle';
+
 export class Agent {
   id: number;
   name: string;
@@ -16,6 +18,10 @@ export class Agent {
   pos: Position;
   knownRumors: string[] = [];
   isBackground: boolean = false;
+  isStationary: boolean = false;
+  role: AgentRole = 'villager';
+  title?: string;
+  intro?: string;
 
   constructor(id: number, name: string, color: string) {
     this.id = id;
@@ -34,6 +40,8 @@ export class Agent {
   }
 
   move() {
+    if (this.isStationary) return;
+
     const directions = [
       { x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }
     ];

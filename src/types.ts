@@ -9,6 +9,16 @@ export interface Position {
   name?: string;
 }
 
+export interface ChatMessage {
+  sender: 'npc' | 'player';
+  text: string;
+}
+
+export interface ChatOption {
+  label: string;
+  onClick: () => void;
+}
+
 export type RumorCategory = "village" | "world" | "conspiracy";
 
 export interface Rumor {

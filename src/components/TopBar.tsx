@@ -14,7 +14,7 @@ interface TopBarProps {
 
 export function TopBar({ day, getTimeOfDay, brainwashedMeter, playerPos, playerReputation }: TopBarProps) {
   return (
-    <div className="flex items-center justify-between bg-zinc-900 p-4 rounded-t-xl border-x border-t border-zinc-800">
+    <div className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-700/70 bg-zinc-950/85 p-4 shadow-2xl backdrop-blur-md">
       <div className="flex items-center gap-4">
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
@@ -24,7 +24,7 @@ export function TopBar({ day, getTimeOfDay, brainwashedMeter, playerPos, playerR
           <p className="text-zinc-400 text-[10px] font-bold mt-1 uppercase">Role: Truthseeker | Day {day} | {getTimeOfDay()}</p>
         </div>
         
-        <div className="hidden md:flex items-center gap-3 bg-zinc-950 px-4 py-2 rounded-full border border-zinc-800">
+        <div className="hidden md:flex items-center gap-3 bg-zinc-900/90 px-4 py-2 rounded-full border border-zinc-700">
           <span className="text-[10px] font-bold text-zinc-500 uppercase">Brainwashed Meter</span>
           <div className="w-32 h-2 bg-zinc-800 rounded-full overflow-hidden relative">
             <motion.div 
@@ -42,7 +42,7 @@ export function TopBar({ day, getTimeOfDay, brainwashedMeter, playerPos, playerR
         </div>
       </div>
       
-      <div className="flex gap-4 text-xs font-bold text-zinc-500">
+      <div className="flex flex-wrap justify-end gap-4 text-xs font-bold text-zinc-400">
         <div className="flex items-center gap-1"><User size={14} /> POS: {playerPos.x},{playerPos.y}</div>
         <div className="flex items-center gap-1"><Heart size={14} className="text-red-500" /> REP: {playerReputation}</div>
       </div>

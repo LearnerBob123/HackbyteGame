@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Position, Rumor } from './types';
+import { Smartphone, ScrollText } from 'lucide-react';
+import { ChatMessage, ChatOption, Position, Rumor } from './types';
 import { RUMORS } from './data/rumors';
 import { LOCATIONS } from './data/locations';
 import { MAP_SIZE, TILE_MAP } from './data/map';
@@ -25,6 +26,29 @@ import { PinpadModal } from './components/PinpadModal';
 import { DialogueModal } from './components/DialogueModal';
 
 export default function App() {
+  const oracleQuickActions = [
+    {
+      label: 'What Next?',
+      prompt: 'Byte Baba, look at my progress and tell me exactly what I should do next in Navagram.',
+    },
+    {
+      label: 'Need A Hint',
+      prompt: 'Byte Baba, give me a short in-world hint without spoiling everything.',
+    },
+    {
+      label: 'Riddle Me',
+      prompt: 'Byte Baba, tell me a short riddle about rumors, trust, or truth.',
+    },
+    {
+      label: 'Village Joke',
+      prompt: 'Byte Baba, tell me a clean village joke.',
+    },
+    {
+      label: 'Meme This',
+      prompt: 'Byte Baba, give me a text-only meme idea about misinformation in Navagram.',
+    },
+  ];
+
   // The engine is the source of truth
   const [engine] = useState(() => new SimulationEngine());
   const [tick, setTick] = useState(0); // For forcing re-renders
@@ -53,20 +77,56 @@ export default function App() {
   const [activeDialogue, setActiveDialogue] = useState<Agent | null>(null);
   const [dialogueView, setDialogueView] = useState<"main" | "share" | "fact-check" | "chat" | "pinpad">("main");
   const [showPinpad, setShowPinpad] = useState(false);
+  const [showPhone, setShowPhone] = useState(false);
   
-  const [chatMessages, setChatMessages] = useState<{sender: 'npc'|'player', text: string}[]>([]);
-  const [chatOptions, setChatOptions] = useState<{label: string, onClick: () => void}[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatOptions, setChatOptions] = useState<ChatOption[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatbotLoading, setChatbotLoading] = useState(false);
+  const [chatbotError, setChatbotError] = useState<string | null>(null);
+  const [speechEnabled, setSpeechEnabled] = useState(true);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatMessagesRef = useRef<ChatMessage[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const currentAudioUrlRef = useRef<string | null>(null);
+  const pressedKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
+  useEffect(() => {
+    chatMessagesRef.current = chatMessages;
+  }, [chatMessages]);
+
+  useEffect(() => {
+    return () => {
+      currentAudioRef.current?.pause();
+      if (currentAudioUrlRef.current) {
+        URL.revokeObjectURL(currentAudioUrlRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const clearKeys = () => {
+      pressedKeysRef.current.clear();
+    };
+
+    window.addEventListener('blur', clearKeys);
+    return () => window.removeEventListener('blur', clearKeys);
+  }, []);
+
   // Sync with engine
   useEffect(() => {
     setAgents([...engine.agents]);
     setVerifiedRumors({ ...engine.verifiedRumors });
-    setLogs(["Navagram Sim initialized. Watch the Brainwashed Meter!", "Talk to NPCs to learn rumors."]);
+    setLogs([
+      "Navagram Sim initialized. Watch the Brainwashed Meter!",
+      "Controls: Move with arrows or WASD, press E to interact, press P to open the phone.",
+      "Talk to NPCs to learn rumors.",
+    ]);
   }, [engine]);
 
   // Game Loop
@@ -153,43 +213,160 @@ export default function App() {
     return "🌙 Night";
   };
 
-  // Player Movement
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (activeDialogue || gameOver) return;
-
-    setPlayerPos(prev => {
-      const newPos = { ...prev };
-      if (e.key === 'ArrowUp' || e.key === 'w') newPos.y = Math.max(0, prev.y - 1);
-      if (e.key === 'ArrowDown' || e.key === 's') newPos.y = Math.min(MAP_SIZE - 1, prev.y + 1);
-      if (e.key === 'ArrowLeft' || e.key === 'a') newPos.x = Math.max(0, prev.x - 1);
-      if (e.key === 'ArrowRight' || e.key === 'd') newPos.x = Math.min(MAP_SIZE - 1, prev.x + 1);
-      
-      const tile = TILE_MAP[newPos.y][newPos.x];
-      if (tile === 2 || tile === 5) return prev; // Block movement
-      
-      return newPos;
-    });
-  }, [activeDialogue, gameOver]);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
-
   const handleAgentClick = (agent: Agent) => {
     if (agent.isBackground || gameOver) return; // Cannot interact with background agents
 
     const isNearby = Math.abs(agent.pos.x - playerPos.x) <= 2 && Math.abs(agent.pos.y - playerPos.y) <= 2;
     if (isNearby) {
+      setShowPhone(false);
       setActiveDialogue(agent);
       setDialogueView("main");
+      setChatbotError(null);
+      setChatInput('');
     } else {
       setLogs(prev => [`You are too far away to talk to ${agent.name}. Move closer!`, ...prev.slice(0, 5)]);
     }
   };
 
+  const isOracle = activeDialogue?.role === 'oracle';
+
+  const knownRumorDetails = playerKnownRumors
+    .map((id) => {
+      const rumor = RUMORS.find((entry) => entry.id === id);
+      if (!rumor) return null;
+
+      const verdict = verifiedRumors[id];
+      return {
+        id: rumor.id,
+        text: rumor.text,
+        verified: verdict === undefined ? 'unverified' : verdict ? 'true' : 'false',
+      };
+    })
+    .filter(Boolean);
+
+  const currentObjective = (() => {
+    if (day === 1) {
+      return `Collect all 5 rumors by talking to villagers. You currently know ${playerKnownRumors.length} of 5.`;
+    }
+
+    if (day === 2) {
+      return `Visit marked locations and verify all rumors. You have verified ${Object.keys(verifiedRumors).length} of 5 rumors.`;
+    }
+
+    return `Use the clue digits you found and unlock the Abandoned Warehouse. You currently have ${collectedClues.length} clue digits.`;
+  })();
+
+  const sendOracleMessage = useCallback(async (message: string) => {
+    const trimmed = message.trim();
+    if (!trimmed) return;
+
+    setChatbotError(null);
+    setChatbotLoading(true);
+    setChatMessages(prev => [...prev, { sender: 'player', text: trimmed }]);
+
+    try {
+      const historyForRequest = [...chatMessagesRef.current, { sender: 'player', text: trimmed }];
+      const response = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: trimmed,
+          history: historyForRequest,
+          playerName,
+          gameState: {
+            day,
+            currentObjective,
+            playerReputation,
+            brainwashedMeter,
+            knownRumorsCount: playerKnownRumors.length,
+            verifiedRumorsCount: Object.keys(verifiedRumors).length,
+            collectedClues,
+            playerPosition: playerPos,
+            timer: day === 2 ? timeLeft : null,
+            knownRumors: knownRumorDetails,
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(typeof data?.error === 'string' ? data.error : 'Chatbot request failed.');
+      }
+
+      const reply = typeof data?.text === 'string' ? data.text : 'Byte Baba stares into the static and says nothing.';
+      setVoiceAvailable(Boolean(data?.speechEnabled));
+      setChatMessages(prev => [...prev, { sender: 'npc', text: reply }]);
+      setChatOptions(createOracleOptions());
+      setLogs(prev => [`Byte Baba replied: ${reply}`, ...prev].slice(0, 500));
+
+      if (speechEnabled && data?.speech?.audioBase64 && data?.speech?.audioMimeType) {
+        const binary = atob(data.speech.audioBase64);
+        const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+        const blob = new Blob([bytes], { type: data.speech.audioMimeType });
+        const audioUrl = URL.createObjectURL(blob);
+
+        currentAudioRef.current?.pause();
+        if (currentAudioUrlRef.current) {
+          URL.revokeObjectURL(currentAudioUrlRef.current);
+        }
+
+        const audio = new Audio(audioUrl);
+        currentAudioRef.current = audio;
+        currentAudioUrlRef.current = audioUrl;
+
+        audio.addEventListener(
+          'ended',
+          () => {
+            if (currentAudioUrlRef.current === audioUrl) {
+              URL.revokeObjectURL(audioUrl);
+              currentAudioUrlRef.current = null;
+            }
+          },
+          { once: true },
+        );
+
+        void audio.play().catch(() => {
+          setLogs(prev => ['Byte Baba has a voice ready, but the browser blocked autoplay. Ask again after interacting once.', ...prev].slice(0, 500));
+        });
+      }
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : 'Chatbot request failed.';
+      setChatbotError(messageText);
+      setChatMessages(prev => [
+        ...prev,
+        { sender: 'npc', text: 'My signal is weak right now. Check the Gemini server and try again.' },
+      ]);
+    } finally {
+      setChatbotLoading(false);
+    }
+  }, [brainwashedMeter, collectedClues, currentObjective, day, knownRumorDetails, playerKnownRumors.length, playerName, playerPos, playerReputation, speechEnabled, timeLeft, verifiedRumors]);
+
+  function createOracleOptions(): ChatOption[] {
+    return [
+      ...oracleQuickActions.map((action) => ({
+        label: action.label,
+        onClick: () => sendOracleMessage(action.prompt),
+      })),
+      { label: 'Back', onClick: () => setDialogueView('main') },
+    ];
+  }
+
   const handleTalk = () => {
     if (!activeDialogue) return;
+
+    if (activeDialogue.role === 'oracle') {
+      setChatMessages([
+        {
+          sender: 'npc',
+          text: `Ah, ${playerName}. Sit by the edge and speak plainly. I can guide you through Navagram, tell you what to do next, or trade you a riddle, a joke, or a meme spun from village gossip. If my old-man voice is configured, I will speak as well as whisper.`,
+        },
+      ]);
+      setChatOptions(createOracleOptions());
+      setDialogueView('chat');
+      return;
+    }
     
     setAgents([...engine.agents]);
 
@@ -234,6 +411,15 @@ export default function App() {
       { label: "End Talk", onClick: () => setDialogueView("main") }
     ]);
   };
+
+  const sendChatInput = useCallback(() => {
+    if (!isOracle || chatbotLoading) return;
+    const message = chatInput.trim();
+    if (!message) return;
+
+    setChatInput('');
+    void sendOracleMessage(message);
+  }, [chatInput, chatbotLoading, isOracle, sendOracleMessage]);
 
   const verifyAtLocation = (locId: string) => {
     const loc = LOCATIONS.find(l => l.id === locId);
@@ -291,6 +477,136 @@ export default function App() {
       return loc && loc.name === locName && verifiedRumors[r.id] === undefined;
     });
 
+  const movePlayerStep = useCallback(() => {
+    if (activeDialogue || gameOver || showPhone || showPinpad) return;
+
+    const pressed = pressedKeysRef.current;
+    if (pressed.size === 0) return;
+
+    setPlayerPos(prev => {
+      const newPos = { ...prev };
+
+      if (pressed.has('arrowup') || pressed.has('w')) newPos.y = Math.max(0, prev.y - 1);
+      else if (pressed.has('arrowdown') || pressed.has('s')) newPos.y = Math.min(MAP_SIZE - 1, prev.y + 1);
+      else if (pressed.has('arrowleft') || pressed.has('a')) newPos.x = Math.max(0, prev.x - 1);
+      else if (pressed.has('arrowright') || pressed.has('d')) newPos.x = Math.min(MAP_SIZE - 1, prev.x + 1);
+
+      const tile = TILE_MAP[newPos.y][newPos.x];
+      if (tile === 2 || tile === 5) return prev;
+
+      return newPos;
+    });
+  }, [activeDialogue, gameOver, showPhone, showPinpad]);
+
+  const tryInteract = useCallback(() => {
+    if (gameOver || showPhone || showPinpad) return;
+
+    if (activeDialogue) {
+      if (dialogueView === 'main') {
+        handleTalk();
+      }
+      return;
+    }
+
+    const nearestAgent = agents
+      .filter((agent) => !agent.isBackground)
+      .find((agent) => Math.abs(agent.pos.x - playerPos.x) <= 2 && Math.abs(agent.pos.y - playerPos.y) <= 2);
+
+    if (nearestAgent) {
+      handleAgentClick(nearestAgent);
+      return;
+    }
+
+    const interactableLocation = LOCATIONS.find((loc) => {
+      const isInside = playerPos.x >= loc.x && playerPos.x < loc.x + loc.w &&
+        playerPos.y >= loc.y && playerPos.y < loc.y + loc.h;
+
+      if (!isInside) return false;
+      if (day === 3 && loc.id === 'warehouse') return true;
+      return day === 2 && hasUnverifiedRumor(loc.name);
+    });
+
+    if (interactableLocation) {
+      verifyAtLocation(interactableLocation.id);
+      return;
+    }
+
+    setLogs(prev => ['Nothing nearby to interact with right now.', ...prev].slice(0, 500));
+  }, [activeDialogue, agents, day, dialogueView, gameOver, playerPos, showPhone, showPinpad, verifiedRumors]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      movePlayerStep();
+    }, 110);
+
+    return () => window.clearInterval(interval);
+  }, [movePlayerStep]);
+
+  // Player Movement and hotkeys
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    const target = e.target as HTMLElement | null;
+    const isTypingTarget = Boolean(
+      target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      )
+    );
+
+    if (isTypingTarget) {
+      return;
+    }
+
+    if (e.key === 'p' || e.key === 'P') {
+      e.preventDefault();
+      if (e.repeat) return;
+      if (!activeDialogue && !showPinpad) {
+        setShowPhone(prev => !prev);
+      }
+      return;
+    }
+
+    if (e.key === 'e' || e.key === 'E') {
+      e.preventDefault();
+      if (e.repeat) return;
+      tryInteract();
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      if (showPhone) {
+        setShowPhone(false);
+        return;
+      }
+      if (activeDialogue) {
+        setActiveDialogue(null);
+        return;
+      }
+    }
+
+    const key = e.key.toLowerCase();
+    if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
+      e.preventDefault();
+      pressedKeysRef.current.add(key);
+      if (!e.repeat) {
+        movePlayerStep();
+      }
+    }
+  }, [activeDialogue, gameOver, showPhone, showPinpad, tryInteract]);
+
+  const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    pressedKeysRef.current.delete(e.key.toLowerCase());
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [handleKeyDown, handleKeyUp]);
+
   const handleStartGame = () => {
     setPlayerName(tempName || "Mahabali");
     setGameStarted(true);
@@ -319,19 +635,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 font-mono selection:bg-emerald-500/30">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Game Map Section */}
-        <div className="lg:col-span-8 space-y-4">
-          <TopBar 
-            day={day} 
-            getTimeOfDay={getTimeOfDay} 
-            brainwashedMeter={brainwashedMeter} 
-            playerPos={playerPos} 
-            playerReputation={playerReputation} 
-          />
-
+    <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,#1f2937_0%,#09090b_55%,#020617_100%)] text-zinc-100 font-mono selection:bg-emerald-500/30">
+      <div className="relative h-full w-full overflow-hidden">
+        <div className="absolute inset-0 p-3 sm:p-4 lg:p-6">
           <GameMap 
             playerPos={playerPos} 
             agents={agents} 
@@ -345,13 +651,66 @@ export default function App() {
           />
         </div>
 
-        <AgentPhone 
-          collectedClues={collectedClues} 
-          playerKnownRumors={playerKnownRumors} 
-          verifiedRumors={verifiedRumors} 
-          logs={logs} 
-        />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 p-3 sm:p-4 lg:p-6">
+          <div className="pointer-events-auto mx-auto max-w-6xl">
+            <TopBar 
+              day={day} 
+              getTimeOfDay={getTimeOfDay} 
+              brainwashedMeter={brainwashedMeter} 
+              playerPos={playerPos} 
+              playerReputation={playerReputation} 
+            />
+          </div>
+        </div>
+
+        <div className="absolute bottom-4 left-4 z-30 flex gap-3">
+          <button
+            onClick={() => setShowPhone(true)}
+            className="flex items-center gap-2 rounded-2xl border border-sky-400/40 bg-sky-500/15 px-4 py-3 text-xs font-black uppercase tracking-wide text-sky-100 shadow-xl backdrop-blur-md transition hover:bg-sky-500/25"
+          >
+            <Smartphone size={16} />
+            Open Phone (P)
+          </button>
+          <button
+            onClick={tryInteract}
+            className="flex items-center gap-2 rounded-2xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-3 text-xs font-black uppercase tracking-wide text-emerald-100 shadow-xl backdrop-blur-md transition hover:bg-emerald-500/25"
+          >
+            Interact (E)
+          </button>
+        </div>
+
+        <div className="absolute bottom-4 right-4 z-30 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-zinc-700/70 bg-zinc-950/88 shadow-2xl backdrop-blur-md">
+          <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-300">
+              <ScrollText size={14} className="text-emerald-400" />
+              Field Logs
+            </div>
+            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+          <div className="max-h-56 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+            {logs.slice(0, 10).map((log, i) => (
+              <div key={i} className={cn(
+                "rounded-xl border-l-4 px-3 py-2 text-[10px] shadow-sm",
+                log.startsWith("You ") || log.includes("You investigated") || log.includes("You shared") || log.includes("You decided") || log.includes("You are now friends") || log.includes("You need to verify") || log.includes("🕵️") || log.includes("🔍") ? "border-emerald-500 bg-emerald-500/10 text-emerald-100" :
+                log.includes("shared") ? "border-blue-500 bg-blue-500/10 text-blue-100" :
+                log.includes("verified") ? "border-emerald-500 bg-emerald-500/10 text-emerald-100" :
+                log.includes("📢") ? "border-purple-500 bg-purple-500/10 text-purple-100" :
+                "border-zinc-600 bg-zinc-900/90 text-zinc-300"
+              )}>
+                {log}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
+
+      <AgentPhone 
+        collectedClues={collectedClues} 
+        playerKnownRumors={playerKnownRumors} 
+        verifiedRumors={verifiedRumors} 
+        isOpen={showPhone}
+        onClose={() => setShowPhone(false)}
+      />
 
       <DayTransition showDayTransition={showDayTransition} day={day} />
 
@@ -371,6 +730,16 @@ export default function App() {
         chatMessages={chatMessages} 
         chatOptions={chatOptions} 
         chatEndRef={chatEndRef} 
+        isChatbot={isOracle}
+        chatbotLoading={chatbotLoading}
+        chatbotError={chatbotError}
+        chatInput={chatInput}
+        setChatInput={setChatInput}
+        sendChatInput={sendChatInput}
+        playerName={playerName}
+        speechEnabled={speechEnabled}
+        setSpeechEnabled={setSpeechEnabled}
+        voiceAvailable={voiceAvailable}
       />
 
       <style dangerouslySetInnerHTML={{ __html: `
