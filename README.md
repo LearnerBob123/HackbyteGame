@@ -46,14 +46,15 @@ The codebase is structured as a modern React application using TypeScript and Vi
 1. Install dependencies: `npm install`
 2. Copy `.env.example` to `.env` and set `GEMINI_API_KEY`.
 3. Optional: set `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` to give Byte Baba an old-man voice.
-4. Start the Gemini proxy server in one terminal: `npm run dev:server`
-5. Start the Vite client in another terminal: `npm run dev`
-6. Open the provided local URL in your browser.
+4. Start the full app and serverless API locally with `npx vercel dev`.
+5. Open the local URL printed by Vercel.
+
+`server.ts` is kept only as a legacy local wrapper. Vercel deployment uses the serverless handlers in `/api`.
 
 ## Gemini Chatbot NPC
 
 - A special villager named Byte Baba now sits near the eastern edge of the map.
 - Talk to Byte Baba to ask about the game, request hints, or generate short riddles, jokes, and text-only meme ideas.
-- The browser now calls a local Express endpoint at `/api/chatbot`, which forwards requests to Gemini so your API key stays on the server side.
+- The browser now calls `/api/gemini` for Gemini replies and `/api/tts` for ElevenLabs speech, so API keys stay on the backend.
 - If ElevenLabs is configured, Byte Baba can also speak each reply aloud and you can toggle voice playback inside the chat panel.
-- If Byte Baba says the signal is weak, check that `.env` exists and the proxy server is running on port `3001`.
+- If Byte Baba says the signal is weak, check that `.env` exists and the Vercel dev server is running.

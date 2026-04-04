@@ -146,7 +146,7 @@ export function DialogueModal({
                   )}
                   {isChatbot && !voiceAvailable && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-800">
-                      Add ElevenLabs API settings on the server to let Byte Baba speak with an old-man voice.
+                      Add ElevenLabs API settings on the backend to let Byte Baba speak with an old-man voice.
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t-2 border-gray-200">
