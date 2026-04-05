@@ -85,14 +85,14 @@ export default async function handler(req: any, res: any) {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash', // safer model name
             contents: prompt,
-            config: {
-                temperature: 1,
-                systemInstruction: `You are Byte Baba, the Edge Oracle of Navagram. 
-Speak warmly, playfully, and in character. 
-Give actionable guidance based on game state. 
-Avoid sounding like an AI assistant.`,
-            },
-        });
+//             config: {
+//                 temperature: 1,
+//                 systemInstruction: `You are Byte Baba, the Edge Oracle of Navagram. 
+// Speak warmly, playfully, and in character. 
+// Give actionable guidance based on game state. 
+// Avoid sounding like an AI assistant.`,
+//             },
+//         });
 
         const text = response.text?.trim();
 
