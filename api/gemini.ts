@@ -31,13 +31,10 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const apiKey = process.env.GEMINI_API_KEY;
+        // 🔥 INLINE KEY (YOU ADD YOUR KEY HERE)
+        const apiKey = "AIzaSyDkwYl2CZTrtn5dyHFjRxUAWCDWg56xqUw";
 
-        if (!apiKey) {
-            return res.status(500).json({
-                error: 'Missing GEMINI_API_KEY in Vercel environment',
-            });
-        }
+        const ai = new GoogleGenAI({ apiKey });
 
         const body =
             typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -80,21 +77,17 @@ export default async function handler(req: any, res: any) {
             'Keep it under 120 words.',
         ].join('\n\n');
 
-        const ai = new GoogleGenAI({ apiKey });
-
+        // 🔥 SAME WORKING CALL
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash', // safer model name
+            model: 'gemini-2.5-flash',
             contents: prompt,
-//             config: {
-//                 temperature: 1,
-//                 systemInstruction: `You are Byte Baba, the Edge Oracle of Navagram. 
-// Speak warmly, playfully, and in character. 
-// Give actionable guidance based on game state. 
-// Avoid sounding like an AI assistant.`,
-//             },
         });
 
-        const text = response.text?.trim();
+        // 🔥 FIX: handle both SDK styles safely
+        const text =
+            typeof response.text === 'string'
+                ? response.text.trim()
+                : response.text?.()?.trim() || '';
 
         if (!text) {
             return res.status(502).json({ error: 'Empty response from Gemini' });
@@ -102,11 +95,9 @@ export default async function handler(req: any, res: any) {
 
         return res.status(200).json({
             text,
-            voiceAvailable: Boolean(
-                process.env.ELEVENLABS_API_KEY &&
-                process.env.ELEVENLABS_VOICE_ID
-            ),
+            voiceAvailable: false,
         });
+
     } catch (error: any) {
         return res.status(500).json({
             error: error?.message || 'Internal server error',

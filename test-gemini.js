@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
-const apiKey = "AIzaSyB396OlYUM8wPovpCmhhrENMOVvW3ni1QM"; // <-- put your key directly
+const apiKey = "AIzaSyDkwYl2CZTrtn5dyHFjRxUAWCDWg56xqUw"; // <-- put your key directly
 
 async function test() {
     try {
@@ -8,7 +8,7 @@ async function test() {
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: "Say hello and a joke",
+            contents: "Say hello and a joke on robots",
         });
 
         console.log("✅ SUCCESS:");
