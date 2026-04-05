@@ -32,7 +32,7 @@ export default async function handler(req: any, res: any) {
 
     try {
         // 🔥 INLINE KEY (YOU ADD YOUR KEY HERE)
-        const apiKey = "AIzaSyDzmYjD-wkEQAak4ckdR5wWIHLOvX1lA4M";
+        const apiKey = "AIzaSyBXjlHT_RApm_KiN29OiM2pIOtHcRa21uM";
 
         const ai = new GoogleGenAI({ apiKey });
 
